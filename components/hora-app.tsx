@@ -2801,6 +2801,7 @@ function SettingsModal({ user, busy, reminders, accessibility, rolloverMode, onC
                 checked={rolloverMode === "ask"}
                 onChange={() => onRolloverModeChange("ask")}
               />
+              <span className="rollover-radio-indicator"><i /></span>
               <div>
                 <strong>Perguntar todo final de mês se desejo transferir</strong>
                 <small>Padrão recomendado: exibe uma notificação para você decidir.</small>
@@ -2814,6 +2815,7 @@ function SettingsModal({ user, busy, reminders, accessibility, rolloverMode, onC
                 checked={rolloverMode === "auto"}
                 onChange={() => onRolloverModeChange("auto")}
               />
+              <span className="rollover-radio-indicator"><i /></span>
               <div>
                 <strong>Transferir automaticamente sempre que passar da meta</strong>
                 <small>Soma o saldo que passou direto como crédito do mês seguinte.</small>
@@ -2827,6 +2829,7 @@ function SettingsModal({ user, busy, reminders, accessibility, rolloverMode, onC
                 checked={rolloverMode === "disabled"}
                 onChange={() => onRolloverModeChange("disabled")}
               />
+              <span className="rollover-radio-indicator"><i /></span>
               <div>
                 <strong>Nunca transferir (manter cada mês isolado)</strong>
                 <small>Não altera o mês seguinte e mantém os relatórios separados.</small>
