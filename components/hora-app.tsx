@@ -838,23 +838,28 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
     input: RecordFormInput,
   ) {
     setBusy(true);
-    const updatingServerRecord = Boolean(target && target.id > 0);
-    const url = updatingServerRecord ? `/api/records/${target?.id}` : "/api/records";
+    const effectiveTarget = target && target.id > 0
+      ? target
+      : records.find((item) => item.date === input.date && item.id > 0)
+        ?? yearRecords.find((item) => item.date === input.date && item.id > 0)
+        ?? target;
+    const updatingServerRecord = Boolean(effectiveTarget && effectiveTarget.id > 0);
+    const url = updatingServerRecord ? `/api/records/${effectiveTarget?.id}` : "/api/records";
     const method = updatingServerRecord ? "PUT" : "POST";
-    const entityKey = recordEntityKey(target);
-    const payload = updatingServerRecord && target?.updatedAt
-      ? { ...input, expectedUpdatedAt: target.updatedAt }
+    const entityKey = recordEntityKey(effectiveTarget);
+    const payload = updatingServerRecord && effectiveTarget?.updatedAt
+      ? { ...input, expectedUpdatedAt: effectiveTarget.updatedAt }
       : input;
     try {
       const result = await api<{ record: RecordEntry; created?: boolean }>(url, {
         method,
         body: JSON.stringify(payload),
       });
-      if (!target && user) window.localStorage.removeItem(`hora-a-hora-draft-${user.id}`);
+      if (!effectiveTarget && user) window.localStorage.removeItem(`hora-a-hora-draft-${user.id}`);
       const selected = new Date(`${input.date}T12:00:00`);
       const selectedPeriod = new Date(selected.getFullYear(), selected.getMonth(), 1);
       const mergeSaved = (items: RecordEntry[]) => [...items.filter((item) =>
-        item.date !== result.record.date && item.id !== target?.id && item.offlineKey !== target?.offlineKey), result.record]
+        item.date !== result.record.date && item.id !== effectiveTarget?.id && item.offlineKey !== effectiveTarget?.offlineKey), result.record]
         .sort((a, b) => a.date.localeCompare(b.date));
       const sameVisiblePeriod = selectedPeriod.getFullYear() === period.getFullYear() && selectedPeriod.getMonth() === period.getMonth();
       setPeriod(selectedPeriod);
@@ -863,9 +868,32 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
       // A resposta do POST/PUT é a confirmação do banco e aparece imediatamente.
       // A recarga seguinte apenas reconcilia os demais painéis e não depende do IndexedDB.
       await loadRecords(selectedPeriod);
-      notify(target || result.created === false ? "Registro atualizado com sucesso." : "Registro salvo com sucesso.", "success");
+      notify(effectiveTarget || result.created === false ? "Registro atualizado com sucesso." : "Registro salvo com sucesso.", "success");
       return true;
     } catch (error) {
+      if (error instanceof ApiError && error.status === 409 && (error.data as { record?: { id?: number } })?.record?.id) {
+        const conflictRecord = (error.data as { record: RecordEntry }).record;
+        try {
+          const retryResult = await api<{ record: RecordEntry }>(`/api/records/${conflictRecord.id}`, {
+            method: "PUT",
+            body: JSON.stringify(input),
+          });
+          const selected = new Date(`${input.date}T12:00:00`);
+          const selectedPeriod = new Date(selected.getFullYear(), selected.getMonth(), 1);
+          const mergeSaved = (items: RecordEntry[]) => [...items.filter((item) =>
+            item.date !== retryResult.record.date && item.id !== conflictRecord.id && item.offlineKey !== conflictRecord.offlineKey), retryResult.record]
+            .sort((a, b) => a.date.localeCompare(b.date));
+          const sameVisiblePeriod = selectedPeriod.getFullYear() === period.getFullYear() && selectedPeriod.getMonth() === period.getMonth();
+          setPeriod(selectedPeriod);
+          setRecords((current) => sameVisiblePeriod ? mergeSaved(current) : [retryResult.record]);
+          if (selectedPeriod.getFullYear() === period.getFullYear()) setYearRecords((current) => mergeSaved(current));
+          await loadRecords(selectedPeriod);
+          notify("Registro salvo com sucesso.", "success");
+          return true;
+        } catch {
+          // Se falhar o retry, segue para o fluxo normal de erro/offline
+        }
+      }
       const connectionFailure = !navigator.onLine || (error instanceof Error && /conectar|internet/i.test(error.message));
       if (!user || !connectionFailure) {
         if (error instanceof ApiError && error.status === 409) await loadRecords().catch(() => undefined);

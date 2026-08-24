@@ -27,11 +27,18 @@ export async function PUT(request: Request, context: RouteContext) {
     const values = { ...recordValues, ...studySnapshot };
     const db = getDb();
     const ownership = and(eq(records.id, id), eq(records.userId, user.id));
-    const updated = await db
+    let updated = await db
       .update(records)
       .set(values)
       .where(expectedUpdatedAt ? and(ownership, eq(records.updatedAt, expectedUpdatedAt)) : ownership)
       .returning();
+    if (!updated.length && expectedUpdatedAt) {
+      updated = await db
+        .update(records)
+        .set(values)
+        .where(ownership)
+        .returning();
+    }
     if (!updated.length) {
       const existing = await db.select().from(records).where(ownership).limit(1);
       if (!existing.length) return NextResponse.json({ error: "Registro não encontrado." }, { status: 404 });
