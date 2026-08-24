@@ -753,8 +753,30 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
   const exactStudies = selectedStudents || (studies.length ? activeStudies : totals.studies);
   const attentionStudies = useMemo(() => studies.filter((study) => studyNeedsAttention(study)).sort((a, b) => daysSinceDate(b.lastContactOn || b.startedOn) - daysSinceDate(a.lastContactOn || a.startedOn)), [studies]);
 
+  const firstName = user?.name.trim().split(/\s+/)[0] || "Visitante";
   const progress = user ? Math.min(100, Math.round((totals.minutes / (user.goalHours * 60)) * 100)) : 0;
   const difference = user ? user.goalHours * 60 - totals.minutes : 0;
+
+  const paceData = useMemo(() => {
+    if (!user) return { isCurrentMonth: false, remainingDays: 1, dailyMinutesNeeded: 0, completed: false };
+    const todayObj = new Date();
+    const isCurrentMonth = period.getMonth() === todayObj.getMonth() && period.getFullYear() === todayObj.getFullYear();
+    const daysInMonth = new Date(period.getFullYear(), period.getMonth() + 1, 0).getDate();
+    const currentDay = isCurrentMonth ? todayObj.getDate() : 1;
+    const remainingDays = isCurrentMonth ? Math.max(1, daysInMonth - currentDay + 1) : daysInMonth;
+    const remainingMinutes = Math.max(0, user.goalHours * 60 - totals.minutes);
+    const dailyMinutesNeeded = Math.ceil(remainingMinutes / remainingDays);
+    const completed = totals.minutes >= user.goalHours * 60;
+    return { isCurrentMonth, remainingDays, remainingMinutes, dailyMinutesNeeded, completed };
+  }, [period, totals.minutes, user]);
+
+  const milestone = useMemo(() => {
+    if (!user || totals.minutes === 0) return null;
+    if (progress >= 100) return { percent: 100, emoji: "🎉", title: "Meta de Horas Alcançada!", text: `Parabéns, ${firstName}! Você completou suas ${user.goalHours} horas planejadas para este mês!` };
+    if (progress >= 75) return { percent: 75, emoji: "🔥", title: "Reta Final: 75% Alcançado!", text: `Incrível progresso! Faltam apenas ${hoursLabel(difference)} para bater a meta do mês.` };
+    if (progress >= 50) return { percent: 50, emoji: "🏆", title: "Metade do Caminho (50%)!", text: `Excelente dedicação! Você já atingiu metade da sua meta mensal.` };
+    return null;
+  }, [difference, firstName, progress, totals.minutes, user]);
 
   const weekly = useMemo(() => {
     const values = Array(7).fill(0) as number[];
@@ -783,7 +805,6 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
     ];
   }, [period, records]);
   const quickRecord = quickDate ? records.find((record) => record.date === quickDate) ?? null : null;
-  const firstName = user?.name.trim().split(/\s+/)[0] || "Visitante";
 
   function changePeriod(offset: number) {
     const next = new Date(period.getFullYear(), period.getMonth() + offset, 1);
@@ -1451,6 +1472,15 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
           </section>
         )}
         {activeView === "home" && <>
+        {milestone && (
+          <section className={`milestone-banner milestone-${milestone.percent}`} role="status">
+            <span className="milestone-emoji">{milestone.emoji}</span>
+            <div className="milestone-info">
+              <strong>{milestone.title}</strong>
+              <small>{milestone.text}</small>
+            </div>
+          </section>
+        )}
         <section className="welcome-row">
           <div>
             <p className="eyebrow"><Sparkles size={14} /> Seu painel pessoal</p>
@@ -1488,6 +1518,26 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
               <span>{progress}%</span>
             </div>
           </article>
+
+          {paceData.isCurrentMonth && (
+            <article className="pace-card" aria-label="Ritmo diário estimado">
+              <div className="pace-icon"><Gauge size={24} /></div>
+              <div className="pace-copy">
+                <span className="card-label">Ritmo Diário Inteligente</span>
+                {paceData.completed ? (
+                  <>
+                    <strong>Meta do mês concluída! 🎉</strong>
+                    <p>Você atingiu seu objetivo de {user.goalHours} horas em {MONTHS[period.getMonth()].toLowerCase()}.</p>
+                  </>
+                ) : (
+                  <>
+                    <strong>Média de {hoursLabel(paceData.dailyMinutesNeeded)} / dia</strong>
+                    <p>necessária nos <strong>{paceData.remainingDays} {paceData.remainingDays === 1 ? "dia restante" : "dias restantes"}</strong> deste mês para alcançar sua meta.</p>
+                  </>
+                )}
+              </div>
+            </article>
+          )}
         </section>
 
         <section className="quick-tools-grid">

@@ -10,6 +10,7 @@ export type StudyInput = {
   nextMeetingOn?: string | null;
   recurrence?: "none" | "weekly";
   staleAfterDays?: number;
+  currentSubject?: string;
   notes?: string;
 };
 
@@ -65,6 +66,7 @@ export function parseStudyInput(input: StudyInput, current?: StudyInput) {
   const nextMeetingOn = requestedNextMeeting ? String(requestedNextMeeting) : null;
   const recurrence = input.recurrence ?? current?.recurrence ?? "weekly";
   const staleAfterDays = Math.round(Number(input.staleAfterDays ?? current?.staleAfterDays ?? 14));
+  const currentSubject = String(input.currentSubject ?? current?.currentSubject ?? "").trim().slice(0, 140);
   const notes = String(input.notes ?? current?.notes ?? "").trim().slice(0, 500);
   if (name.length < 2) throw new Error("Informe um nome, apelido ou identificação para o estudo.");
   if (!validDate(startedOn)) throw new Error("Informe uma data de início válida.");
@@ -76,5 +78,5 @@ export function parseStudyInput(input: StudyInput, current?: StudyInput) {
   if (!Number.isInteger(staleAfterDays) || staleAfterDays < 1 || staleAfterDays > 365) throw new Error("Informe o alerta de inatividade entre 1 e 365 dias.");
   if (remindersEnabled && !preferredTime) throw new Error("Informe o horário preferido antes de ativar o lembrete individual.");
   if (remindersEnabled && !nextMeetingOn && preferredDays.length === 0) throw new Error("Informe o próximo encontro ou pelo menos um dia preferido para ativar o lembrete.");
-  return { name, active, startedOn, endedOn, preferredDays, preferredTime, address, remindersEnabled, nextMeetingOn, recurrence, staleAfterDays, notes, updatedAt: new Date() };
+  return { name, active, startedOn, endedOn, preferredDays, preferredTime, address, remindersEnabled, nextMeetingOn, recurrence, staleAfterDays, currentSubject, notes, updatedAt: new Date() };
 }

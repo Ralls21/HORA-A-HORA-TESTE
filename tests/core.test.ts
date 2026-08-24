@@ -292,6 +292,40 @@ test("oferece backup em JSON, novos temas e menu lateral drawer no celular", () 
   assert.match(styles, /\.drawer-backdrop/);
 });
 
+test("calcula ritmo diário, celebra metas com confetes, oferece modo foco no cronômetro e marcador de lição", () => {
+  const component = readFileSync(new URL("../components/hora-app.tsx", import.meta.url), "utf8");
+  const timer = readFileSync(new URL("../components/timer-card.tsx", import.meta.url), "utf8");
+  const studiesModal = readFileSync(new URL("../components/studies-modal.tsx", import.meta.url), "utf8");
+  const profile = readFileSync(new URL("../components/student-profile.tsx", import.meta.url), "utf8");
+  const styles = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  const studiesLib = readFileSync(new URL("../lib/studies.ts", import.meta.url), "utf8");
+
+  // Ritmo Diário
+  assert.match(component, /pace-card/);
+  assert.match(component, /paceData/);
+  assert.match(styles, /\.pace-card/);
+
+  // Celebração de Metas
+  assert.match(component, /milestone-banner/);
+  assert.match(styles, /\.milestone-banner/);
+  assert.match(styles, /\.milestone-50/);
+  assert.match(styles, /\.milestone-75/);
+  assert.match(styles, /\.milestone-100/);
+
+  // Modo Foco no Cronômetro
+  assert.match(timer, /timer-focus-overlay/);
+  assert.match(timer, /timer-expand-button/);
+  assert.match(timer, /wakeLock/);
+  assert.match(styles, /\.timer-focus-overlay/);
+  assert.match(styles, /\.timer-focus-display/);
+
+  // Marcador de Lição
+  assert.match(studiesModal, /currentSubject/);
+  assert.match(studiesModal, /Lição ou Capítulo/);
+  assert.match(profile, /Lição \/ Progresso/);
+  assert.match(studiesLib, /currentSubject/);
+});
+
 test("usa cartões no mobile e impede que o painel ultrapasse a tela", () => {
   const component = readFileSync(new URL("../components/hora-app.tsx", import.meta.url), "utf8");
   const history = readFileSync(new URL("../components/history-panel.tsx", import.meta.url), "utf8");

@@ -1511,6 +1511,272 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .72; }
   -webkit-overflow-scrolling: touch;
 }
 
+/* ==========================================================================
+   Ritmo Diário, Milestone Banner & Modo Foco no Cronômetro
+   ========================================================================== */
+
+.pace-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--line));
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.pace-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.pace-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pace-copy .card-label {
+  margin-bottom: 2px;
+}
+
+.pace-copy strong {
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.pace-copy p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.milestone-banner {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--primary) 15%, transparent);
+  animation: milestone-pop 0.35s cubic-bezier(0.17, 0.89, 0.32, 1.28);
+}
+
+.milestone-50 {
+  border-color: #3b82f6;
+  background: color-mix(in srgb, #3b82f6 8%, var(--surface));
+}
+
+.milestone-75 {
+  border-color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 9%, var(--surface));
+}
+
+.milestone-100 {
+  border-color: #10b981;
+  background: color-mix(in srgb, #10b981 12%, var(--surface));
+}
+
+.milestone-emoji {
+  font-size: 26px;
+  flex-shrink: 0;
+  animation: pulse-emoji 1.5s infinite;
+}
+
+.milestone-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.milestone-info strong {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.milestone-info small {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+@keyframes milestone-pop {
+  from { opacity: 0; transform: scale(0.95) translateY(-6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes pulse-emoji {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15) rotate(5deg); }
+}
+
+.timer-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timer-expand-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface-subtle);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background 0.15s, color 0.15s;
+}
+
+.timer-expand-button:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.timer-focus-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--surface);
+  color: var(--ink);
+  z-index: 600;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(20px, 5vw, 40px);
+  animation: drawer-fade-in 0.25s ease-out;
+}
+
+.timer-focus-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.timer-focus-badge {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.timer-focus-close {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-subtle);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.timer-focus-close:hover {
+  background: var(--primary-soft);
+  color: var(--ink);
+}
+
+.timer-focus-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: auto 0;
+  gap: 20px;
+}
+
+.timer-focus-status {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.timer-focus-display {
+  font-size: clamp(54px, 14vw, 110px);
+  font-weight: 850;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary-dark);
+  line-height: 1;
+}
+
+.timer-focus-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 10px;
+}
+
+.timer-focus-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 28px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.1s, background 0.15s;
+}
+
+.timer-focus-btn:active {
+  transform: scale(0.97);
+}
+
+.timer-focus-play {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  flex: 1 1 180px;
+}
+
+.timer-focus-pause {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  border-color: var(--line);
+  flex: 1 1 180px;
+}
+
+.timer-focus-finish {
+  background: var(--surface-subtle);
+  color: var(--ink);
+  border-color: var(--line);
+  flex: 1 1 180px;
+}
+
+.timer-focus-reset {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--line);
+  padding: 16px 20px;
+}
+
 @keyframes drawer-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }

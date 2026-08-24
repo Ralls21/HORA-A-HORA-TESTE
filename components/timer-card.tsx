@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CirclePause, CirclePlay, RotateCcw, Square, Timer } from "lucide-react";
+import { CirclePause, CirclePlay, Maximize2, Minimize2, RotateCcw, Square, Timer } from "lucide-react";
 import { EMPTY_TIMER, parseStoredTimer, timerElapsed, timerMinutes, type StoredTimer } from "@/lib/timer";
 
 export type TimerCategory = "service" | "ldc";
@@ -38,8 +38,24 @@ export function TimerCard({ userId, onFinish }: { userId: number; onFinish: (cat
   const [hydrated, setHydrated] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("unsupported");
+  const [fullscreen, setFullscreen] = useState(false);
   const timerActionRef = useRef<(action: string) => void>(() => undefined);
   const lastNotificationTick = useRef(-1);
+
+  useEffect(() => {
+    let wakeLockSentinel: unknown = null;
+    if (fullscreen && timer.running && "wakeLock" in navigator) {
+      (navigator as unknown as { wakeLock: { request: (type: string) => Promise<unknown> } }).wakeLock
+        .request("screen")
+        .then((lock) => { wakeLockSentinel = lock; })
+        .catch(() => undefined);
+    }
+    return () => {
+      if (wakeLockSentinel && typeof (wakeLockSentinel as { release?: () => Promise<void> }).release === "function") {
+        void (wakeLockSentinel as { release: () => Promise<void> }).release().catch(() => undefined);
+      }
+    };
+  }, [fullscreen, timer.running]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -187,6 +203,9 @@ export function TimerCard({ userId, onFinish }: { userId: number; onFinish: (cat
       <div className="timer-card-heading">
         <span className="timer-icon"><Timer size={22} /></span>
         <div><span className="card-label">Cronômetro</span><strong>{timer.running ? "Contagem em andamento" : elapsedMs ? "Contagem pausada" : "Pronto para começar"}</strong></div>
+        <button type="button" className="timer-expand-button" title="Modo Foco em Tela Cheia" aria-label="Modo Foco em Tela Cheia" onClick={() => setFullscreen(true)}>
+          <Maximize2 size={18} />
+        </button>
       </div>
       <div className="timer-category" aria-label="Categoria do cronômetro">
         <button type="button" className={timer.category === "service" ? "selected" : ""} disabled={!hydrated || finishing || timer.running || elapsedMs > 0} onClick={() => setTimer((current) => ({ ...current, category: "service" }))}>Serviço</button>
@@ -207,6 +226,38 @@ export function TimerCard({ userId, onFinish }: { userId: number; onFinish: (cat
           <>O cronômetro já funciona. <button type="button" className="timer-notification-button" onClick={() => void enableNotifications()}>Ativar notificações</button> é opcional.</>
         ) : notificationPermission === "granted" ? "Notificações ativas, com ações para pausar e parar." : "O cronômetro funciona normalmente sem notificações."}
       </small>
+
+      {fullscreen && (
+        <div className="timer-focus-overlay" role="dialog" aria-modal="true" aria-label="Modo foco do cronômetro">
+          <div className="timer-focus-header">
+            <span className="timer-focus-badge">{timer.category === "service" ? "Horas de Serviço" : "Horas LDC"}</span>
+            <button type="button" className="timer-focus-close" aria-label="Sair do modo foco" onClick={() => setFullscreen(false)}>
+              <Minimize2 size={24} />
+            </button>
+          </div>
+          <div className="timer-focus-content">
+            <span className="timer-focus-status">{timer.running ? "Contagem em andamento" : elapsedMs ? "Contagem pausada" : "Pronto para iniciar"}</span>
+            <output className="timer-focus-display" aria-live="off">{clockLabel(elapsedMs)}</output>
+            <div className="timer-focus-actions">
+              {timer.running ? (
+                <button type="button" className="timer-focus-btn timer-focus-pause" onClick={pause}>
+                  <CirclePause size={30} /> Pausar
+                </button>
+              ) : (
+                <button type="button" className="timer-focus-btn timer-focus-play" onClick={startOrResume}>
+                  <CirclePlay size={30} /> {elapsedMs ? "Continuar" : "Iniciar"}
+                </button>
+              )}
+              <button type="button" className="timer-focus-btn timer-focus-finish" disabled={!elapsedMs || finishing} onClick={() => { void finish(); setFullscreen(false); }}>
+                <Square size={24} /> {finishing ? "Salvando…" : "Finalizar e Salvar"}
+              </button>
+              <button type="button" className="timer-focus-btn timer-focus-reset" disabled={!elapsedMs || finishing} onClick={reset}>
+                <RotateCcw size={20} /> Zerar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

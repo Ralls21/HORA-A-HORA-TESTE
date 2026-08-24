@@ -35,6 +35,7 @@ export type StudyForm = {
   nextMeetingOn: string;
   recurrence: "none" | "weekly";
   staleAfterDays: number;
+  currentSubject: string;
   notes: string;
 };
 
@@ -44,7 +45,7 @@ function localDate() {
 }
 
 function emptyStudyForm(): StudyForm {
-  return { name: "", startedOn: localDate(), preferredDays: [], preferredTime: "", address: "", remindersEnabled: false, nextMeetingOn: "", recurrence: "weekly", staleAfterDays: 14, notes: "" };
+  return { name: "", startedOn: localDate(), preferredDays: [], preferredTime: "", address: "", remindersEnabled: false, nextMeetingOn: "", recurrence: "weekly", staleAfterDays: 14, currentSubject: "", notes: "" };
 }
 
 export function StudiesModal({ studies, busy, onClose, onCreate, onUpdate, onDelete }: {
@@ -70,6 +71,7 @@ export function StudiesModal({ studies, busy, onClose, onCreate, onUpdate, onDel
       nextMeetingOn: study.nextMeetingOn ?? "",
       recurrence: study.recurrence ?? "weekly",
       staleAfterDays: study.staleAfterDays ?? 14,
+      currentSubject: study.currentSubject ?? "",
       notes: study.notes,
     });
   }
@@ -116,6 +118,7 @@ export function StudiesModal({ studies, busy, onClose, onCreate, onUpdate, onDel
               </div>
             </fieldset>
             <label>Endereço <span className="optional">opcional</span><input maxLength={240} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} placeholder="Rua, número, bairro e referência" /></label>
+            <label>Lição ou Capítulo Atual <span className="optional">opcional</span><input maxLength={140} value={form.currentSubject} onChange={(event) => setForm({ ...form, currentSubject: event.target.value })} placeholder="Ex: Livro Seja Feliz, Lição 08, ponto 3" /></label>
             <section className="study-agenda-settings">
               <div className="study-form-row">
                 <label>Próximo encontro <span className="optional">opcional</span><input type="date" value={form.nextMeetingOn} onChange={(event) => setForm({ ...form, nextMeetingOn: event.target.value })} /></label>
