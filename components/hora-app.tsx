@@ -1091,8 +1091,13 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
 
   async function installApp() {
     setMobileOpen(false);
+    const isIos = typeof navigator !== "undefined" && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+    if (isIos) {
+      notify("No iPhone/iPad: toque no botão de Compartilhar (quadrado com seta) do Safari e selecione 'Adicionar à Tela de Início'.", "info", undefined, 6000);
+      return;
+    }
     if (!installPrompt) {
-      notify("No Android, abra o menu do Chrome e toque em “Instalar app”.");
+      notify("Para instalar: abra o menu de opções do navegador e selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial'.", "info", undefined, 5000);
       return;
     }
     await installPrompt.prompt();
@@ -1232,8 +1237,12 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
         await navigator.clipboard.writeText(reportSummary());
         notify("Resumo copiado. Agora você pode colar no aplicativo desejado.");
       }
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof DOMException && error.name === "AbortError") return;
+      if (error && typeof error === "object" && ("name" in error || "message" in error)) {
+        const err = error as { name?: string; message?: string };
+        if (err.name === "AbortError" || (err.message && err.message.toLowerCase().includes("abort"))) return;
+      }
       notify("Não foi possível gerar ou abrir o compartilhamento neste navegador.", "error");
     }
   }
@@ -1440,7 +1449,7 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
         onToggle={() => setThemeOpen((open) => !open)}
         onSelect={selectTheme}
       />
-      <button className="header-link" onClick={installApp}><Download size={17} /> Instalar no Android</button>
+      <button className="header-link" onClick={installApp}><Download size={17} /> Instalar aplicativo</button>
       {user.role === "admin" && (
         <button className="header-link" onClick={() => setAdminOpen(true)}><ShieldCheck size={17} /> Administração</button>
       )}

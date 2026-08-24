@@ -81,7 +81,12 @@ export function HistoryPanel({ records, studies, year, onYearChange, onEdit, onD
       if (filters.status === "synced" && isPending(record)) return false;
       if (filters.from && record.date < filters.from) return false;
       if (filters.to && record.date > filters.to) return false;
-      if (search && !`${record.notes} ${record.weekday} ${(record.studyNames ?? []).join(" ")}`.toLocaleLowerCase("pt-BR").includes(search)) return false;
+      if (search) {
+        const formattedDate = dateLabel(record.date);
+        const dayMonth = `${record.date.slice(8, 10)}/${record.date.slice(5, 7)}`;
+        const searchTarget = `${record.date} ${formattedDate} ${dayMonth} ${record.notes || ""} ${record.weekday} ${(record.studyNames ?? []).join(" ")}`.toLocaleLowerCase("pt-BR");
+        if (!searchTarget.includes(search)) return false;
+      }
       return true;
     });
     return result.sort((a, b) => {
