@@ -61,14 +61,15 @@ export type MonthlyPdfInput = {
   themeColor?: string;
   activeStudies?: number;
   studyDirectory?: ReportStudy[];
+  rolloverMinutes?: number;
 };
 
 export function createMonthlyPdf(input: MonthlyPdfInput) {
-  const { user, records, month, year } = input;
+  const { user, records, month, year, rolloverMinutes = 0 } = input;
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
   const serviceMinutes = records.reduce((sum, record) => sum + record.minutes, 0);
   const ldcMinutes = records.reduce((sum, record) => sum + record.ldcMinutes, 0);
-  const exactMinutes = records.reduce((sum, record) => sum + recordTotalMinutes(record), 0);
+  const exactMinutes = records.reduce((sum, record) => sum + recordTotalMinutes(record), 0) + rolloverMinutes;
   const totalMinutes = roundReportMinutes(exactMinutes, user.roundingMode);
   const publications = records.reduce((sum, record) => sum + record.publications, 0);
   const studySessions = records.reduce((sum, record) => sum + record.studies, 0);

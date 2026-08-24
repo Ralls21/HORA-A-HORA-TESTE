@@ -634,3 +634,22 @@ test("organiza o histórico, separa as áreas e permite desfazer exclusões", ()
   assert.match(styles, /\.timer-card\.running/);
   assert.match(styles, /\.workspace-nav button\.active/);
 });
+
+test("oferece banco de horas excedentes com transferência opcional e transparente entre meses", () => {
+  const component = readFileSync(new URL("../components/hora-app.tsx", import.meta.url), "utf8");
+  const styles = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  const pdf = readFileSync(new URL("../lib/pdf-report.ts", import.meta.url), "utf8");
+  assert.match(component, /surplusMinutes/);
+  assert.match(component, /acceptRollover/);
+  assert.match(component, /dismissRollover/);
+  assert.match(component, /undoRollover/);
+  assert.match(component, /totalWithRollover/);
+  assert.match(component, /rollover-card/);
+  assert.match(component, /rollover-badge/);
+  assert.match(component, /rollover-undo-btn/);
+  assert.match(component, /hora-a-hora-rollovers-/);
+  assert.match(styles, /\.rollover-card/);
+  assert.match(styles, /\.rollover-badge/);
+  assert.match(styles, /\.rollover-undo-btn/);
+  assert.match(pdf, /rolloverMinutes/);
+});

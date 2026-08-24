@@ -21,6 +21,7 @@ import {
   EyeOff,
   FileDown,
   Gauge,
+  Gift,
   Home,
   LogOut,
   Mail,
@@ -30,6 +31,7 @@ import {
   Palette,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   Save,
   Share2,
@@ -73,6 +75,16 @@ type User = {
   trialExpiresAt: string | null;
   sessionExpiresAt: string | null;
   createdAt: string;
+};
+
+export type MonthRollover = {
+  fromYear: number;
+  fromMonth: number;
+  toYear: number;
+  toMonth: number;
+  minutes: number;
+  status: "accepted" | "dismissed";
+  decidedAt: string;
 };
 
 type RecordEntry = {
@@ -369,6 +381,29 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
   const [theme, setTheme] = useState<ThemeId>("blue");
   const [themeOpen, setThemeOpen] = useState(false);
   const [drawerThemesOpen, setDrawerThemesOpen] = useState(false);
+  const [rollovers, setRollovers] = useState<Record<string, MonthRollover>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const cached = window.localStorage.getItem(cachedUserKey());
+      if (!cached) return {};
+      const parsed = JSON.parse(cached);
+      if (!parsed?.id) return {};
+      const saved = window.localStorage.getItem(`hora-a-hora-rollovers-${parsed.id}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const saveRollovers = useCallback((next: Record<string, MonthRollover>) => {
+    setRollovers(next);
+    if (user && typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(`hora-a-hora-rollovers-${user.id}`, JSON.stringify(next));
+      } catch {}
+    }
+  }, [user]);
+
   const [tourStep, setTourStep] = useState<number | null>(null);
   const [reminders, setReminders] = useState<ReminderPreferences>({ enabled: false, days: 3 });
   const [accessibility, setAccessibility] = useState<AccessibilityPreferences>({ largeText: false, highContrast: false });
@@ -755,8 +790,26 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
   const attentionStudies = useMemo(() => studies.filter((study) => studyNeedsAttention(study)).sort((a, b) => daysSinceDate(b.lastContactOn || b.startedOn) - daysSinceDate(a.lastContactOn || a.startedOn)), [studies]);
 
   const firstName = user?.name.trim().split(/\s+/)[0] || "Visitante";
-  const progress = user ? Math.min(100, Math.round((totals.minutes / (user.goalHours * 60)) * 100)) : 0;
-  const difference = user ? user.goalHours * 60 - totals.minutes : 0;
+
+  const previousPeriod = useMemo(() => new Date(period.getFullYear(), period.getMonth() - 1, 1), [period]);
+  const prevYear = previousPeriod.getFullYear();
+  const prevMonth = previousPeriod.getMonth() + 1;
+  const currentYear = period.getFullYear();
+  const currentMonth = period.getMonth() + 1;
+  const rolloverKey = `${prevYear}-${prevMonth}_to_${currentYear}-${currentMonth}`;
+
+  const surplusMinutes = useMemo(() => {
+    if (!user) return 0;
+    const goalMinutes = user.goalHours * 60;
+    return Math.max(0, previousTotals.minutes - goalMinutes);
+  }, [previousTotals.minutes, user]);
+
+  const currentRolloverDecision = rollovers[rolloverKey] as MonthRollover | undefined;
+  const activeRolloverMinutes = currentRolloverDecision?.status === "accepted" ? currentRolloverDecision.minutes : 0;
+  const totalWithRollover = totals.minutes + activeRolloverMinutes;
+
+  const progress = user ? Math.min(100, Math.round((totalWithRollover / (user.goalHours * 60)) * 100)) : 0;
+  const difference = user ? Math.max(0, user.goalHours * 60 - totalWithRollover) : 0;
 
   const paceData = useMemo(() => {
     if (!user) return { isCurrentMonth: false, remainingDays: 1, dailyMinutesNeeded: 0, completed: false };
@@ -765,19 +818,54 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
     const daysInMonth = new Date(period.getFullYear(), period.getMonth() + 1, 0).getDate();
     const currentDay = isCurrentMonth ? todayObj.getDate() : 1;
     const remainingDays = isCurrentMonth ? Math.max(1, daysInMonth - currentDay + 1) : daysInMonth;
-    const remainingMinutes = Math.max(0, user.goalHours * 60 - totals.minutes);
+    const remainingMinutes = Math.max(0, user.goalHours * 60 - totalWithRollover);
     const dailyMinutesNeeded = Math.ceil(remainingMinutes / remainingDays);
-    const completed = totals.minutes >= user.goalHours * 60;
+    const completed = totalWithRollover >= user.goalHours * 60;
     return { isCurrentMonth, remainingDays, remainingMinutes, dailyMinutesNeeded, completed };
-  }, [period, totals.minutes, user]);
+  }, [period, totalWithRollover, user]);
 
   const milestone = useMemo(() => {
-    if (!user || totals.minutes === 0) return null;
+    if (!user || totalWithRollover === 0) return null;
     if (progress >= 100) return { percent: 100, emoji: "🎉", title: "Meta de Horas Alcançada!", text: `Parabéns, ${firstName}! Você completou suas ${user.goalHours} horas planejadas para este mês!` };
     if (progress >= 75) return { percent: 75, emoji: "🔥", title: "Reta Final: 75% Alcançado!", text: `Incrível progresso! Faltam apenas ${hoursLabel(difference)} para bater a meta do mês.` };
     if (progress >= 50) return { percent: 50, emoji: "🏆", title: "Metade do Caminho (50%)!", text: `Excelente dedicação! Você já atingiu metade da sua meta mensal.` };
     return null;
-  }, [difference, firstName, progress, totals.minutes, user]);
+  }, [difference, firstName, progress, totalWithRollover, user]);
+
+  function acceptRollover(minutes: number) {
+    const entry: MonthRollover = {
+      fromYear: prevYear,
+      fromMonth: prevMonth,
+      toYear: currentYear,
+      toMonth: currentMonth,
+      minutes,
+      status: "accepted",
+      decidedAt: new Date().toISOString(),
+    };
+    saveRollovers({ ...rollovers, [rolloverKey]: entry });
+    notify(`Bônus de ${hoursLabel(minutes)} transferido para ${MONTHS[period.getMonth()]} com sucesso!`, "success");
+  }
+
+  function dismissRollover(minutes: number) {
+    const entry: MonthRollover = {
+      fromYear: prevYear,
+      fromMonth: prevMonth,
+      toYear: currentYear,
+      toMonth: currentMonth,
+      minutes,
+      status: "dismissed",
+      decidedAt: new Date().toISOString(),
+    };
+    saveRollovers({ ...rollovers, [rolloverKey]: entry });
+    notify("Saldo excedente mantido no mês anterior.", "info");
+  }
+
+  function undoRollover() {
+    const next = { ...rollovers };
+    delete next[rolloverKey];
+    saveRollovers(next);
+    notify("Transferência desfeita com sucesso.", "info");
+  }
 
   const weekly = useMemo(() => {
     const values = Array(7).fill(0) as number[];
@@ -1234,16 +1322,17 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
 
   function reportSummary() {
     if (!user) return "";
-    const reportedTotal = roundReportMinutes(totals.minutes, user.roundingMode);
-    const exactLine = reportedTotal === totals.minutes ? "" : `\nTempo exato registrado: ${hoursLabel(totals.minutes)}`;
-    return `Relatório Hora a Hora — ${MONTHS[period.getMonth()]} de ${period.getFullYear()}\nTotal do relatório: ${hoursLabel(reportedTotal)}${exactLine}\nServiço: ${hoursLabel(totals.serviceMinutes)}\nLDC: ${hoursLabel(totals.ldcMinutes)}\nPublicações: ${totals.publications}\nEstudos: ${exactStudies}`;
+    const reportedTotal = roundReportMinutes(totalWithRollover, user.roundingMode);
+    const exactLine = reportedTotal === totalWithRollover ? "" : `\nTempo exato registrado: ${hoursLabel(totalWithRollover)}`;
+    const rolloverLine = activeRolloverMinutes > 0 ? `\nSaldo transferido de ${MONTHS[prevMonth - 1]}: +${hoursLabel(activeRolloverMinutes)}` : "";
+    return `Relatório Hora a Hora — ${MONTHS[period.getMonth()]} de ${period.getFullYear()}\nTotal do relatório: ${hoursLabel(reportedTotal)}${exactLine}${rolloverLine}\nServiço: ${hoursLabel(totals.serviceMinutes)}\nLDC: ${hoursLabel(totals.ldcMinutes)}\nPublicações: ${totals.publications}\nEstudos: ${exactStudies}`;
   }
 
   async function downloadPdf() {
     if (!user) return;
     try {
       const { downloadMonthlyPdf } = await import("@/lib/pdf-report");
-      downloadMonthlyPdf({ user, records, month: period.getMonth() + 1, year: period.getFullYear(), themeColor: THEMES.find((item) => item.id === theme)?.color, activeStudies: exactStudies, studyDirectory: monthlyStudies });
+      downloadMonthlyPdf({ user, records, month: period.getMonth() + 1, year: period.getFullYear(), themeColor: THEMES.find((item) => item.id === theme)?.color, activeStudies: exactStudies, studyDirectory: monthlyStudies, rolloverMinutes: activeRolloverMinutes });
     } catch {
       notify("Não foi possível gerar o PDF neste navegador.", "error");
     }
@@ -1253,7 +1342,7 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
     if (!user) return;
     try {
       const { createMonthlyPdf } = await import("@/lib/pdf-report");
-      const doc = createMonthlyPdf({ user, records, month: period.getMonth() + 1, year: period.getFullYear(), themeColor: THEMES.find((item) => item.id === theme)?.color, activeStudies: exactStudies, studyDirectory: monthlyStudies });
+      const doc = createMonthlyPdf({ user, records, month: period.getMonth() + 1, year: period.getFullYear(), themeColor: THEMES.find((item) => item.id === theme)?.color, activeStudies: exactStudies, studyDirectory: monthlyStudies, rolloverMinutes: activeRolloverMinutes });
       const blob = doc.output("blob");
       const file = new File([blob], `hora-a-hora-${period.getFullYear()}-${String(period.getMonth() + 1).padStart(2, "0")}.pdf`, { type: "application/pdf" });
       if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
@@ -1523,7 +1612,7 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
           <div>
             <p className="eyebrow"><Sparkles size={14} /> Seu painel pessoal</p>
             <h1>{greeting()}, {firstName}!</h1>
-            <p>Você já registrou <strong>{hoursLabel(totals.minutes)}</strong> em {MONTHS[period.getMonth()].toLowerCase()}. <span>{difference > 0 ? `Faltam ${hoursLabel(difference)} para sua meta.` : difference < 0 ? `Você está ${hoursLabel(Math.abs(difference))} acima da meta.` : "Sua meta foi alcançada!"}</span></p>
+            <p>Você já registrou <strong>{hoursLabel(totalWithRollover)}</strong> em {MONTHS[period.getMonth()].toLowerCase()}{activeRolloverMinutes > 0 ? ` (inclui +${hoursLabel(activeRolloverMinutes)} de bônus)` : ""}. <span>{difference > 0 ? `Faltam ${hoursLabel(difference)} para sua meta.` : difference < 0 ? `Você está ${hoursLabel(Math.abs(difference))} acima da meta.` : "Sua meta foi alcançada!"}</span></p>
           </div>
           <div className="period-actions">
             <div className="month-switcher">
@@ -1537,6 +1626,30 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
           </div>
         </section>
 
+        {surplusMinutes > 0 && !currentRolloverDecision && (
+          <section className="rollover-card panel" aria-label="Banco de horas excedentes">
+            <div className="rollover-icon"><Gift size={26} /></div>
+            <div className="rollover-copy">
+              <div className="rollover-header">
+                <span className="card-label">Banco de Horas Excedentes</span>
+                <strong>Você fez +{hoursLabel(surplusMinutes)} a mais em {MONTHS[prevMonth - 1]}!</strong>
+              </div>
+              <p>
+                Sua meta era de {user.goalHours}h e você fechou com {hoursLabel(previousTotals.minutes)}.
+                Deseja transferir essas <strong>+{hoursLabel(surplusMinutes)}</strong> como bônus inicial para {MONTHS[currentMonth - 1]}?
+              </p>
+              <div className="rollover-actions">
+                <button type="button" className="button primary button-sm" onClick={() => acceptRollover(surplusMinutes)}>
+                  <Check size={16} /> Sim, transferir para {MONTHS[currentMonth - 1]}
+                </button>
+                <button type="button" className="button ghost button-sm" onClick={() => dismissRollover(surplusMinutes)}>
+                  Não, manter isolado
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="today-action-card" aria-label="Registrar horas de hoje">
           <div className="today-action-icon"><CalendarDays size={28} /></div>
           <div className="today-action-copy"><span>Registro de hoje</span><strong>{fullDate(today())}</strong><small>Preencha suas horas em poucos segundos.</small></div>
@@ -1547,10 +1660,18 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
           <article className="progress-card" data-tour="goal">
             <div className="progress-copy">
               <span className="card-label">Progresso mensal</span>
-              <strong>{hoursLabel(totals.minutes)}</strong>
+              <strong>{hoursLabel(totalWithRollover)}</strong>
               <p>de {user.goalHours} horas planejadas</p>
               <div className="linear-track"><span style={{ width: `${progress}%` }} /></div>
               <small>{difference > 0 ? `Faltam ${hoursLabel(difference)}` : difference < 0 ? `${hoursLabel(Math.abs(difference))} acima da meta` : "Meta alcançada!"}</small>
+              {activeRolloverMinutes > 0 && (
+                <div className="rollover-badge">
+                  <span>🎁 <strong>+{hoursLabel(activeRolloverMinutes)}</strong> bônus de {MONTHS[prevMonth - 1]}</span>
+                  <button type="button" className="rollover-undo-btn" onClick={undoRollover} title="Desfazer transferência">
+                    <RotateCcw size={12} /> Desfazer
+                  </button>
+                </div>
+              )}
             </div>
             <div className="progress-ring" role="progressbar" aria-label="Progresso da meta mensal" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}>
               <span>{progress}%</span>
