@@ -1,17 +1,19 @@
 import { neon } from "@neondatabase/serverless";
-import { drizzle as drizzleNeon } from "drizzle-orm/neon-http";
+import { drizzle as drizzleNeon, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 import { PGlite } from "@electric-sql/pglite";
-import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
+import { drizzle as drizzlePglite, type PgliteDatabase } from "drizzle-orm/pglite";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import * as schema from "./schema";
 
-let database: any;
+type AppDatabase = NeonHttpDatabase<typeof schema> | PgliteDatabase<typeof schema>;
 
-function initLocalDatabase() {
+let database: AppDatabase | null = null;
+
+function initLocalDatabase(): AppDatabase {
   const dataDir = join(process.cwd(), ".local-db");
   const client = new PGlite(dataDir);
-  const db = drizzlePglite(client, { schema }) as any;
+  const db = drizzlePglite(client, { schema });
 
   const sqlDir = join(process.cwd(), "drizzle");
   if (existsSync(sqlDir)) {
@@ -24,18 +26,22 @@ function initLocalDatabase() {
     }
   }
 
-  db.batch = async (queries: any[]) => {
-    const results = [];
-    for (const q of queries) {
-      results.push(await q);
-    }
-    return results;
-  };
+  Object.defineProperty(db, "batch", {
+    value: async (queries: Array<Promise<unknown>>) => {
+      const results = [];
+      for (const q of queries) {
+        results.push(await q);
+      }
+      return results;
+    },
+    writable: true,
+    configurable: true,
+  });
 
   return db;
 }
 
-export function getDb() {
+export function getDb(): AppDatabase {
   if (database) return database;
   const url = process.env.DATABASE_URL;
   if (url && (url.includes(".neon.tech") || url.startsWith("postgresql://") || url.startsWith("postgres://")) && !url.includes("localhost") && !url.includes("127.0.0.1")) {
