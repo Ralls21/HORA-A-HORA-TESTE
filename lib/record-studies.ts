@@ -9,7 +9,7 @@ export async function resolveStudySnapshot(userId: number, requestedIds: number[
     .select({ id: studiesRegistry.id, name: studiesRegistry.name })
     .from(studiesRegistry)
     .where(and(eq(studiesRegistry.userId, userId), inArray(studiesRegistry.id, requestedIds)));
-  const names = new Map(rows.map((study) => [study.id, study.name]));
+  const names = new Map(rows.map((study: { id: number; name: string }) => [study.id, study.name]));
   if (names.size !== requestedIds.length) {
     throw new Error("Selecione apenas estudantes cadastrados na sua conta.");
   }

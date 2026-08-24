@@ -15,6 +15,7 @@ import {
   CircleUserRound,
   Clock3,
   Copy,
+  Database,
   Download,
   Eye,
   EyeOff,
@@ -33,10 +34,12 @@ import {
   Save,
   Share2,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Timer,
   TriangleAlert,
   Trash2,
+  Upload,
   UserPlus,
   UsersRound,
   Wifi,
@@ -191,6 +194,10 @@ const THEMES = [
   { id: "yellow", label: "Amarelo", color: "#9a6500", description: "Leve e luminoso" },
   { id: "dark", label: "Dark", color: "#28364c", description: "Confortável à noite" },
   { id: "white", label: "Branco", color: "#6b7280", description: "Limpo e minimalista" },
+  { id: "emerald", label: "Esmeralda", color: "#059669", description: "Fresco e moderno" },
+  { id: "sunset", label: "Pôr do Sol", color: "#ea580c", description: "Quente e acolhedor" },
+  { id: "midnight", label: "Midnight", color: "#38bdf8", description: "Oceano noturno" },
+  { id: "lavender", label: "Lavanda", color: "#8b5cf6", description: "Roxo real elegante" },
 ] as const;
 
 type ThemeId = (typeof THEMES)[number]["id"];
@@ -371,6 +378,7 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
   const messageTimerRef = useRef<number | null>(null);
   const recordsRequestRef = useRef(0);
   const studiesRequestRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const notify = useCallback((text: string, tone: "success" | "error" | "warning" | "info" = "info", action?: ToastMessage["action"], duration = 4200) => {
     if (messageTimerRef.current !== null) window.clearTimeout(messageTimerRef.current);
@@ -1211,6 +1219,103 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
     window.open(`https://wa.me/?text=${encodeURIComponent(reportSummary())}`, "_blank", "noopener,noreferrer");
   }
 
+  function downloadBackup() {
+    if (!user) return;
+    try {
+      const payload = {
+        app: "Hora a Hora",
+        version: "4.2.1",
+        exportedAt: new Date().toISOString(),
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          goalHours: user.goalHours,
+          annualGoalHours: user.annualGoalHours,
+          roundingMode: user.roundingMode,
+        },
+        records,
+        studies,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `hora-a-hora-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      notify("Backup baixado com sucesso!", "success");
+    } catch {
+      notify("Não foi possível gerar o arquivo de backup.", "error");
+    }
+  }
+
+  async function importBackupFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.records || !Array.isArray(data.records)) {
+        throw new Error("Formato de backup inválido.");
+      }
+      if (!window.confirm(`Deseja restaurar este backup com ${data.records.length} registros e ${data.studies?.length ?? 0} estudantes?`)) {
+        return;
+      }
+      setBusy(true);
+      if (Array.isArray(data.studies)) {
+        for (const s of data.studies) {
+          try {
+            await api("/api/studies", {
+              method: "POST",
+              body: JSON.stringify({
+                name: s.name,
+                preferredDays: s.preferredDays ?? [],
+                preferredTime: s.preferredTime ?? "",
+                address: s.address ?? "",
+                startDate: s.startDate ?? "",
+                status: s.status ?? "ativo",
+                followupIntervalDays: s.followupIntervalDays ?? 14,
+                remindersEnabled: s.remindersEnabled ?? false,
+                notes: s.notes ?? "",
+              }),
+            });
+          } catch {}
+        }
+      }
+      if (Array.isArray(data.records)) {
+        for (const r of data.records) {
+          try {
+            await api("/api/records", {
+              method: "POST",
+              body: JSON.stringify({
+                date: r.date,
+                hours: Math.floor((r.minutes ?? 0) / 60),
+                minutes: (r.minutes ?? 0) % 60,
+                ldcHours: Math.floor((r.ldcMinutes ?? 0) / 60),
+                ldcMinutes: (r.ldcMinutes ?? 0) % 60,
+                publications: r.publications ?? 0,
+                studies: r.studies ?? 0,
+                notes: r.notes ?? "",
+                studyIds: r.studyIds ?? [],
+              }),
+            });
+          } catch {}
+        }
+      }
+      await Promise.all([loadRecords(), loadStudies()]);
+      notify("Backup restaurado com sucesso!", "success");
+      setMobileOpen(false);
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Erro ao importar arquivo.", "error");
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
+  }
+
   async function requestStudyReminderPermission(enabled: boolean) {
     if (!enabled || !("Notification" in window)) return;
     let permission = Notification.permission;
@@ -1330,7 +1435,6 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
             {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
-        {mobileOpen && <nav className="mobile-nav">{desktopActions}</nav>}
         <nav className="workspace-nav" aria-label="Áreas do aplicativo">
           <button type="button" className={activeView === "home" ? "active" : ""} aria-current={activeView === "home" ? "page" : undefined} onClick={() => navigateTo("home")}><Home size={17} /> Início</button>
           <button type="button" className={activeView === "history" ? "active" : ""} aria-current={activeView === "history" ? "page" : undefined} onClick={() => navigateTo("history")}><CalendarDays size={17} /> Histórico</button>
@@ -1617,6 +1721,105 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
       {adminOpen && <AdminPanel currentUser={user} onClose={() => setAdminOpen(false)} notify={notify} />}
       {tourStep !== null && <TourOverlay step={tourStep} onNext={() => tourStep >= 3 ? finishTour() : setTourStep(tourStep + 1)} onSkip={finishTour} />}
       {message && <Toast message={message} />}
+
+      {mobileOpen && (
+        <>
+          <div className="drawer-backdrop" onClick={() => setMobileOpen(false)} />
+          <aside className="mobile-drawer" aria-label="Menu principal">
+            <div className="drawer-header">
+              <div className="drawer-user-card" onClick={() => { setSettingsOpen(true); setMobileOpen(false); }}>
+                <div className="drawer-user-avatar">{firstName.charAt(0).toUpperCase()}</div>
+                <div className="drawer-user-info">
+                  <span className="drawer-user-name">{user.name}</span>
+                  <span className="drawer-user-email">{user.email}</span>
+                </div>
+              </div>
+              <button type="button" className="drawer-close" aria-label="Fechar menu" onClick={() => setMobileOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="drawer-content">
+              <div className="drawer-section">
+                <span className="drawer-section-title">Navegação</span>
+                <button type="button" className="drawer-button" onClick={() => { navigateTo("home"); setMobileOpen(false); }}>
+                  <Home size={18} /> Início
+                </button>
+                <button type="button" className="drawer-button" onClick={() => { navigateTo("history"); setMobileOpen(false); }}>
+                  <CalendarDays size={18} /> Histórico de Horas
+                </button>
+                <button type="button" className="drawer-button" onClick={() => { navigateTo("studies"); setMobileOpen(false); }}>
+                  <BookHeart size={18} /> Estudantes
+                </button>
+                <button type="button" className="drawer-button" onClick={() => { navigateTo("reports"); setMobileOpen(false); }}>
+                  <FileDown size={18} /> Relatórios & Exportação
+                </button>
+              </div>
+
+              <div className="drawer-section">
+                <span className="drawer-section-title">Dados & Backup</span>
+                <button type="button" className="drawer-button" onClick={() => { downloadBackup(); setMobileOpen(false); }}>
+                  <Download size={18} /> Baixar Backup (JSON)
+                </button>
+                <button type="button" className="drawer-button" onClick={() => fileInputRef.current?.click()}>
+                  <Upload size={18} /> Restaurar Backup
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  className="hidden-file-input"
+                  onChange={(e) => void importBackupFile(e)}
+                />
+                <button type="button" className="drawer-button" onClick={() => { shareWhatsApp(); setMobileOpen(false); }}>
+                  <MessageCircle size={18} /> Enviar Resumo no WhatsApp
+                </button>
+              </div>
+
+              <div className="drawer-section">
+                <span className="drawer-section-title">Temas & Cores</span>
+                <div className="drawer-theme-grid">
+                  {THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`drawer-theme-chip ${theme === t.id ? "selected" : ""}`}
+                      onClick={() => selectTheme(t.id)}
+                    >
+                      <span className="drawer-theme-chip-dot" style={{ backgroundColor: t.color }} />
+                      <span>{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="drawer-section">
+                <span className="drawer-section-title">Conta & Acessibilidade</span>
+                <button type="button" className="drawer-button" onClick={() => { setSettingsOpen(true); setMobileOpen(false); }}>
+                  <CircleUserRound size={18} /> Minha Conta & Metas
+                </button>
+                <button type="button" className="drawer-button" onClick={() => { setTourStep(0); setMobileOpen(false); }}>
+                  <Sparkles size={18} /> Ver Tour do Aplicativo
+                </button>
+                <button type="button" className="drawer-button" onClick={() => { installApp(); setMobileOpen(false); }}>
+                  <Smartphone size={18} /> Instalar no Celular
+                </button>
+                {user.role === "admin" && (
+                  <button type="button" className="drawer-button" onClick={() => { setAdminOpen(true); setMobileOpen(false); }}>
+                    <ShieldCheck size={18} /> Painel Administrativo
+                  </button>
+                )}
+              </div>
+
+              <div className="drawer-section">
+                <button type="button" className="drawer-button drawer-button-danger" onClick={() => { logout(); setMobileOpen(false); }}>
+                  <LogOut size={18} /> Sair da Conta
+                </button>
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   );
 }

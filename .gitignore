@@ -7,3 +7,4 @@ tmp
 *.log
 .sites-runtime
 *.tsbuildinfo
+.local-db

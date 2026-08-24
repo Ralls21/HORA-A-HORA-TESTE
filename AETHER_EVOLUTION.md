@@ -9,18 +9,18 @@ Este arquivo registra o histórico de aprendizados, decisões arquiteturais e me
 - **Origem dos Arquivos:** C:\Users\rally\Downloads\Documents\SITES\hora-a-hora-teste
 - **Repositório:** Ralls21/HORA-A-HORA-TESTE
 - **Versão:** 4.2.1 (Edição Profissional Vercel)
-- **Stack:** Next.js 16 (App Router), React 19, TypeScript, Drizzle ORM, Neon PostgreSQL, jsPDF, Lucide React.
-- **Validação:** 43 testes de unidade e integração executados com 100% de aprovação.
+- **Stack:** Next.js 16 (App Router), React 19, TypeScript, Drizzle ORM, Neon PostgreSQL, PGlite (Local), jsPDF, Lucide React.
+- **Validação:** 44 testes de unidade e integração executados com 100% de aprovação.
 
 ---
 
-## 2. Padrões de Arquitetura Identificados
+## 2. Padrões de Arquitetura e Novas Funcionalidades
 
 ### [Architecture Insight]
-- **Modularização de Telas e Estado:** O sistema organiza a navegação em 4 abas (Início, Histórico, Estudantes e Relatórios) gerenciadas no components/hora-app.tsx com sub-painéis desacoplados (history-panel.tsx, student-profile.tsx, 	imer-card.tsx, nnual-panel.tsx).
-- **Resiliência Offline:** Utilização de offline-store.ts com sincronização automática e controle de conflitos.
-- **Relatórios:** Geração dinâmica de relatórios em PDF com jspdf e jspdf-autotable suportando cores temáticas e emojis personalizados (pdf-emoji.ts).
+- **Banco de Dados Híbrido Resiliente:** Suporte automático a banco local embarcado (PGlite) e nuvem (Neon PostgreSQL) em db/index.ts.
+- **Menu Mobile Drawer & Ergonomia:** Transformação do menu de 3 tracinhos em uma gaveta lateral deslizante categorizada (Navegação, Dados & Backup, Temas, Conta e Acessibilidade).
+- **Exportação & Restauração de Dados:** Backup em formato JSON compatível com mobile e desktop, com validação e recarga atômica.
+- **Sistema de Temas Expandido:** 11 temas integrados (Azul, Rosa, Verde, Lilás, Amarelo, Dark, Branco, Esmeralda, Pôr do Sol, Midnight, Lavanda).
 
 ### [Process Fix]
-- Integração da suíte de 43 testes automatizados via 
-ode:test e verificação estática contínua com 	sc --noEmit.
+- Suíte de 44 testes automatizados e checagem estática TypeScript contínua (	sc --noEmit).

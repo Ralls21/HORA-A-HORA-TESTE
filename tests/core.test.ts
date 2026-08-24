@@ -278,6 +278,20 @@ test("oferece os sete temas e salva a preferência visual", () => {
   assert.match(component, /hora-a-hora-theme/);
 });
 
+test("oferece backup em JSON, novos temas e menu lateral drawer no celular", () => {
+  const component = readFileSync(new URL("../components/hora-app.tsx", import.meta.url), "utf8");
+  const styles = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  for (const theme of ["emerald", "sunset", "midnight", "lavender"]) {
+    assert.match(component, new RegExp(`id: \\"${theme}\\"`));
+    assert.match(styles, new RegExp(`data-theme=\\"${theme}\\"`));
+  }
+  assert.match(component, /downloadBackup/);
+  assert.match(component, /importBackupFile/);
+  assert.match(component, /mobile-drawer/);
+  assert.match(styles, /\.mobile-drawer/);
+  assert.match(styles, /\.drawer-backdrop/);
+});
+
 test("usa cartões no mobile e impede que o painel ultrapasse a tela", () => {
   const component = readFileSync(new URL("../components/hora-app.tsx", import.meta.url), "utf8");
   const history = readFileSync(new URL("../components/history-panel.tsx", import.meta.url), "utf8");

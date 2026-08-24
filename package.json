@@ -16,12 +16,15 @@
     "report:sample": "node --import tsx scripts/generate-sample-report.ts"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.7",
     "@neondatabase/serverless": "^1.0.2",
+    "@types/pg": "^8.23.1",
     "drizzle-orm": "0.45.2",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.468.0",
     "next": "16.3.0",
+    "pg": "^8.23.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "resend": "^6.5.2"
