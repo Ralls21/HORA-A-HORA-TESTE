@@ -1925,11 +1925,38 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .72; }
   background: color-mix(in srgb, var(--danger) 15%, var(--surface)) !important;
 }
 
+.drawer-button-expandable {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.drawer-theme-indicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--line);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.drawer-expand-icon {
+  color: var(--muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.drawer-expand-icon.open {
+  transform: rotate(180deg);
+}
+
 .drawer-theme-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  padding: 2px 0;
+  padding: 8px 0 2px;
+  animation: drawer-fade-in 0.2s ease-out;
 }
 
 .drawer-theme-chip {

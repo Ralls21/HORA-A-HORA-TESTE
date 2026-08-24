@@ -9,6 +9,7 @@ import {
   BookHeart,
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
@@ -368,6 +369,7 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
   const [installPrompt, setInstallPrompt] = useState<InstallPrompt | null>(null);
   const [theme, setTheme] = useState<ThemeId>("blue");
   const [themeOpen, setThemeOpen] = useState(false);
+  const [drawerThemesOpen, setDrawerThemesOpen] = useState(false);
   const [tourStep, setTourStep] = useState<number | null>(null);
   const [reminders, setReminders] = useState<ReminderPreferences>({ enabled: false, days: 3 });
   const [accessibility, setAccessibility] = useState<AccessibilityPreferences>({ largeText: false, highContrast: false });
@@ -1827,20 +1829,33 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
               </div>
 
               <div className="drawer-section">
-                <span className="drawer-section-title">Temas & Cores</span>
-                <div className="drawer-theme-grid">
-                  {THEMES.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className={`drawer-theme-chip ${theme === t.id ? "selected" : ""}`}
-                      onClick={() => selectTheme(t.id)}
-                    >
-                      <span className="drawer-theme-chip-dot" style={{ backgroundColor: t.color }} />
-                      <span>{t.label}</span>
-                    </button>
-                  ))}
-                </div>
+                <span className="drawer-section-title">Aparência & Cores</span>
+                <button
+                  type="button"
+                  className="drawer-button drawer-button-expandable"
+                  onClick={() => setDrawerThemesOpen((open) => !open)}
+                  aria-expanded={drawerThemesOpen}
+                >
+                  <Palette size={18} />
+                  <span>Tema: <strong>{THEMES.find((t) => t.id === theme)?.label || "Padrão"}</strong></span>
+                  <span className="drawer-theme-indicator" style={{ backgroundColor: THEMES.find((t) => t.id === theme)?.color }} />
+                  <ChevronDown size={16} className={`drawer-expand-icon ${drawerThemesOpen ? "open" : ""}`} />
+                </button>
+                {drawerThemesOpen && (
+                  <div className="drawer-theme-grid">
+                    {THEMES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={`drawer-theme-chip ${theme === t.id ? "selected" : ""}`}
+                        onClick={() => selectTheme(t.id)}
+                      >
+                        <span className="drawer-theme-chip-dot" style={{ backgroundColor: t.color }} />
+                        <span>{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="drawer-section">
