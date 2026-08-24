@@ -236,9 +236,13 @@ test("registro rápido limpa zeros, normaliza campos vazios e aguarda o salvamen
   assert.match(component, /hours\.trim\(\) \|\| "0"/);
   assert.match(component, /await onSave\(\{/);
   assert.match(component, /quickTotalMinutes/);
+  assert.match(component, /quick-mode-selector/);
+  assert.match(component, /Somar novo tempo/);
+  assert.match(component, /draft-discard-btn/);
   assert.match(component, /credentials: options\?\.credentials \?\? "same-origin"/);
   assert.match(styles, /\.quick-duration-card\.ldc-card/);
   assert.match(styles, /\.quick-duration-grid/);
+  assert.match(styles, /\.quick-mode-selector/);
 });
 
 test("mantém a gravação confirmada visível mesmo se o cache local falhar", () => {

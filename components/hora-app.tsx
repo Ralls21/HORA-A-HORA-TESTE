@@ -2366,7 +2366,37 @@ function RecordModal({ record, availableStudies, initialDate, draftKey, busy, on
   return (
     <Modal title={record ? "Editar registro" : "Novo registro"} subtitle="Preencha os dados do seu dia." onClose={onClose}>
       <form className="modal-form" onSubmit={submitRecord} noValidate>
-        {!record && <div className={`draft-status ${draftRestored ? "restored" : ""}`}><Save size={16} /><span><strong>{draftRestored ? "Rascunho recuperado" : "Salvamento automático ativo"}</strong><small>Se fechar esta tela, o preenchimento continuará salvo neste aparelho.</small></span></div>}
+        {!record && (
+          <div className={`draft-status ${draftRestored ? "restored" : ""}`}>
+            <Save size={16} />
+            <span>
+              <strong>{draftRestored ? "Rascunho recuperado" : "Salvamento automático ativo"}</strong>
+              <small>Se fechar esta tela, o preenchimento continuará salvo neste aparelho.</small>
+            </span>
+            {draftRestored && (
+              <button
+                type="button"
+                className="draft-discard-btn"
+                onClick={() => {
+                  try { window.localStorage.removeItem(draftKey); } catch {}
+                  setForm({
+                    date: initialDate,
+                    hours: "0",
+                    minutes: "0",
+                    ldcHours: "0",
+                    ldcMinutes: "0",
+                    publications: "0",
+                    studies: "0",
+                    studyIds: [],
+                    notes: "",
+                  });
+                }}
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        )}
         <label className={fieldErrors.date ? "field-invalid" : ""}>Data<input required type="date" aria-invalid={Boolean(fieldErrors.date)} value={form.date} onChange={(event) => updateRecordField("date", event.target.value)} />{fieldErrors.date && <small className="field-error" role="alert">{fieldErrors.date}</small>}</label>
         <fieldset className={`duration-group ${fieldErrors.hours || fieldErrors.minutes ? "field-invalid" : ""}`}><legend>Tempo de serviço</legend><div className="duration-fields"><label>Horas<input autoFocus required type="number" min="0" max={MAX_RECORD_HOURS} step="1" inputMode="numeric" aria-invalid={Boolean(fieldErrors.hours)} value={form.hours} onChange={(event) => updateRecordField("hours", event.target.value)} placeholder="0" />{fieldErrors.hours && <small className="field-error" role="alert">{fieldErrors.hours}</small>}</label><span className="duration-separator" aria-hidden="true">:</span><label>Minutos<input required type="number" min="0" max="59" step="1" inputMode="numeric" aria-invalid={Boolean(fieldErrors.minutes)} value={form.minutes} onChange={(event) => updateRecordField("minutes", event.target.value)} placeholder="0" />{fieldErrors.minutes && <small className="field-error" role="alert">{fieldErrors.minutes}</small>}</label></div><DurationShortcuts onAdd={applyDurationShortcut} /><small className="field-hint">Aceita até 200 horas. Exemplo: para uma hora e meia, digite 1 em horas e 30 em minutos.</small></fieldset>
         <fieldset className={`duration-group ldc-duration ${fieldErrors.ldcHours || fieldErrors.ldcMinutes ? "field-invalid" : ""}`}><legend>Tempo LDC <span className="optional">opcional</span></legend><div className="duration-fields"><label>Horas<input required type="number" min="0" max={MAX_RECORD_HOURS} step="1" inputMode="numeric" aria-invalid={Boolean(fieldErrors.ldcHours)} value={form.ldcHours} onChange={(event) => updateRecordField("ldcHours", event.target.value)} placeholder="0" />{fieldErrors.ldcHours && <small className="field-error" role="alert">{fieldErrors.ldcHours}</small>}</label><span className="duration-separator" aria-hidden="true">:</span><label>Minutos<input required type="number" min="0" max="59" step="1" inputMode="numeric" aria-invalid={Boolean(fieldErrors.ldcMinutes)} value={form.ldcMinutes} onChange={(event) => updateRecordField("ldcMinutes", event.target.value)} placeholder="0" />{fieldErrors.ldcMinutes && <small className="field-error" role="alert">{fieldErrors.ldcMinutes}</small>}</label></div><DurationShortcuts onAdd={applyLdcDurationShortcut} /><small className="field-hint">Aceita até 200 horas para atividades aprovadas que entram separadamente no relatório.</small></fieldset>
@@ -2391,14 +2421,32 @@ function QuickRecordModal({ date, record, availableStudies, busy, onClose, onDet
   onDetails: () => void;
   onSave: (data: RecordFormInput) => Promise<void>;
 }) {
-  const initialDuration = durationParts(record?.minutes ?? 0);
-  const initialLdcDuration = durationParts(record?.ldcMinutes ?? 0);
-  const [hours, setHours] = useState(initialDuration.hours);
-  const [minutes, setMinutes] = useState(initialDuration.minutes);
-  const [ldcHours, setLdcHours] = useState(initialLdcDuration.hours);
-  const [ldcMinutes, setLdcMinutes] = useState(initialLdcDuration.minutes);
+  const hasExistingRecord = Boolean(record && ((record.minutes ?? 0) > 0 || (record.ldcMinutes ?? 0) > 0));
+  const [entryMode, setEntryMode] = useState<"add" | "replace">(hasExistingRecord ? "add" : "replace");
+
+  const [hours, setHours] = useState("0");
+  const [minutes, setMinutes] = useState("0");
+  const [ldcHours, setLdcHours] = useState("0");
+  const [ldcMinutes, setLdcMinutes] = useState("0");
   const [studyIds, setStudyIds] = useState(record?.studyIds ?? []);
   const [fieldErrors, setFieldErrors] = useState<RecordFieldErrors>({});
+
+  function handleModeChange(mode: "add" | "replace") {
+    setEntryMode(mode);
+    if (mode === "replace") {
+      const current = durationParts(record?.minutes ?? 0);
+      const currentLdc = durationParts(record?.ldcMinutes ?? 0);
+      setHours(current.hours);
+      setMinutes(current.minutes);
+      setLdcHours(currentLdc.hours);
+      setLdcMinutes(currentLdc.minutes);
+    } else {
+      setHours("0");
+      setMinutes("0");
+      setLdcHours("0");
+      setLdcMinutes("0");
+    }
+  }
 
   function applyDurationShortcut(amount: number) {
     const next = addDuration(hours, minutes, amount);
@@ -2412,7 +2460,20 @@ function QuickRecordModal({ date, record, availableStudies, busy, onClose, onDet
     setLdcMinutes(next.minutes);
     setFieldErrors({});
   }
-  const quickTotalMinutes = (Number(hours) || 0) * 60 + (Number(minutes) || 0) + (Number(ldcHours) || 0) * 60 + (Number(ldcMinutes) || 0);
+
+  const inputServiceMinutes = (Number(hours) || 0) * 60 + (Number(minutes) || 0);
+  const inputLdcMinutes = (Number(ldcHours) || 0) * 60 + (Number(ldcMinutes) || 0);
+
+  const finalServiceMinutes = entryMode === "add" && record
+    ? (record.minutes ?? 0) + inputServiceMinutes
+    : inputServiceMinutes;
+
+  const finalLdcMinutes = entryMode === "add" && record
+    ? (record.ldcMinutes ?? 0) + inputLdcMinutes
+    : inputLdcMinutes;
+
+  const quickTotalMinutes = finalServiceMinutes + finalLdcMinutes;
+
   return (
     <Modal title="Registro rápido" subtitle={fullDate(date)} onClose={onClose} className="quick-record-modal">
       <form className="modal-form quick-form" onSubmit={async (event) => {
@@ -2432,25 +2493,74 @@ function QuickRecordModal({ date, record, availableStudies, busy, onClose, onDet
         setFieldErrors({});
         await onSave({
           date,
-          hours: Number(normalizedHours),
-          minutes: Number(normalizedMinutes),
-          ldcHours: Number(normalizedLdcHours),
-          ldcMinutes: Number(normalizedLdcMinutes),
+          hours: Math.floor(finalServiceMinutes / 60),
+          minutes: finalServiceMinutes % 60,
+          ldcHours: Math.floor(finalLdcMinutes / 60),
+          ldcMinutes: finalLdcMinutes % 60,
           publications: record?.publications ?? 0,
           studies: record?.studies ?? 0,
           studyIds,
           notes: record?.notes ?? "",
         });
       }} noValidate>
-        <div className="quick-day-summary"><span><Zap size={21} /></span><div><strong>{record ? "Atualize as horas deste dia" : "Quantas horas você fez?"}</strong><small>Salve agora ou abra o formulário completo para incluir publicações, estudos e anotações.</small></div></div>
+        {hasExistingRecord && (
+          <>
+            <div className="quick-mode-selector" role="radiogroup" aria-label="Modo de registro">
+              <button
+                type="button"
+                className={entryMode === "add" ? "selected" : ""}
+                onClick={() => handleModeChange("add")}
+              >
+                <Plus size={15} /> Somar novo tempo
+              </button>
+              <button
+                type="button"
+                className={entryMode === "replace" ? "selected" : ""}
+                onClick={() => handleModeChange("replace")}
+              >
+                <Pencil size={15} /> Editar total
+              </button>
+            </div>
+            {entryMode === "add" && (
+              <div className="quick-existing-notice">
+                <span>Tempo já salvo hoje: <strong>{hoursLabel((record?.minutes ?? 0) + (record?.ldcMinutes ?? 0))}</strong></span>
+                <small>Digite abaixo o tempo adicional a somar.</small>
+              </div>
+            )}
+          </>
+        )}
+
+        {!hasExistingRecord && (
+          <div className="quick-day-summary">
+            <span><Zap size={21} /></span>
+            <div>
+              <strong>Quantas horas você fez?</strong>
+              <small>Salve agora ou abra o formulário completo para incluir publicações, estudos e anotações.</small>
+            </div>
+          </div>
+        )}
+
         <div className="quick-duration-grid">
           <QuickDurationCard type="service" autoFocus hours={hours} minutes={minutes} hoursError={fieldErrors.hours} minutesError={fieldErrors.minutes} onHoursChange={(value) => { setHours(value); setFieldErrors((current) => ({ ...current, hours: undefined })); }} onMinutesChange={(value) => { setMinutes(value); setFieldErrors((current) => ({ ...current, minutes: undefined })); }} onAdd={applyDurationShortcut} />
           <QuickDurationCard type="ldc" hours={ldcHours} minutes={ldcMinutes} hoursError={fieldErrors.ldcHours} minutesError={fieldErrors.ldcMinutes} onHoursChange={(value) => { setLdcHours(value); setFieldErrors((current) => ({ ...current, ldcHours: undefined })); }} onMinutesChange={(value) => { setLdcMinutes(value); setFieldErrors((current) => ({ ...current, ldcMinutes: undefined })); }} onAdd={applyLdcDurationShortcut} />
         </div>
-        <div className="quick-total-preview"><span>Total informado</span><strong>{hoursLabel(quickTotalMinutes)}</strong><small>Serviço + LDC</small></div>
+        <div className="quick-total-preview">
+          <span>{entryMode === "add" && hasExistingRecord ? "Novo total final do dia" : "Total informado"}</span>
+          <strong>{hoursLabel(quickTotalMinutes)}</strong>
+          <small>
+            {entryMode === "add" && hasExistingRecord && (inputServiceMinutes + inputLdcMinutes > 0)
+              ? `Já salvo (${hoursLabel((record?.minutes ?? 0) + (record?.ldcMinutes ?? 0))}) + Adicionando (${hoursLabel(inputServiceMinutes + inputLdcMinutes)})`
+              : "Serviço + LDC"}
+          </small>
+        </div>
         <RecordStudySelector compact availableStudies={availableStudies} selectedIds={studyIds} onChange={setStudyIds} />
         <button type="button" className="quick-details-button" onClick={onDetails}><Pencil size={15} /> Preencher mais detalhes</button>
-        <div className="modal-actions"><button type="button" className="button ghost" onClick={onClose}>Cancelar</button><button className="button primary" disabled={busy}>{busy ? "Salvando…" : record ? "Atualizar horas" : "Salvar rápido"}</button></div>
+        <div className="modal-actions">
+          <button type="button" className="button ghost" onClick={onClose}>Cancelar</button>
+          <button className="button primary" disabled={busy}>
+            {busy ? "Salvando…" : entryMode === "add" && hasExistingRecord ? "Salvar e somar" : hasExistingRecord ? "Substituir total" : "Salvar rápido"}
+          </button>
+        </div>
       </form>
     </Modal>
   );

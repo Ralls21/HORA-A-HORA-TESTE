@@ -1989,6 +1989,68 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .72; }
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+/* ==========================================================================
+   Modo de Registro: Somar vs Substituir & Limpeza de Rascunho
+   ========================================================================== */
+
+.quick-mode-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 6px 0 14px;
+}
+
+.quick-mode-selector button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quick-mode-selector button.selected {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border-color: var(--primary);
+}
+
+.quick-existing-notice {
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-size: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.draft-discard-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.draft-discard-btn:hover {
+  background: var(--surface-subtle);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 .hidden-file-input {
   display: none !important;
 }
