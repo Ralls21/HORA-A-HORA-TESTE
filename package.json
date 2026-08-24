@@ -1,0 +1,39 @@
+{
+  "name": "hora-a-hora-vercel",
+  "version": "4.2.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "db:check": "drizzle-kit check",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "vercel-build": "npm run db:migrate && next build",
+    "report:sample": "node --import tsx scripts/generate-sample-report.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "drizzle-orm": "0.45.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.2",
+    "lucide-react": "^0.468.0",
+    "next": "16.3.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "resend": "^6.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.3",
+    "@types/react-dom": "^19.0.2",
+    "drizzle-kit": "^0.31.8",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^16.3.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
