@@ -648,8 +648,13 @@ test("oferece banco de horas excedentes com transferência opcional e transparen
   assert.match(component, /rollover-badge/);
   assert.match(component, /rollover-undo-btn/);
   assert.match(component, /hora-a-hora-rollovers-/);
+  assert.match(component, /Perguntar todo final de mês se desejo transferir/);
+  assert.match(component, /Transferir automaticamente sempre que passar da meta/);
+  assert.match(component, /Nunca transferir \(manter cada mês isolado\)/);
   assert.match(styles, /\.rollover-card/);
   assert.match(styles, /\.rollover-badge/);
   assert.match(styles, /\.rollover-undo-btn/);
+  assert.match(styles, /\.rollover-pref-options/);
+  assert.match(styles, /\.rollover-radio-option/);
   assert.match(pdf, /rolloverMinutes/);
 });

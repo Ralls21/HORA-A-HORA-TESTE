@@ -87,6 +87,8 @@ export type MonthRollover = {
   decidedAt: string;
 };
 
+export type RolloverPreference = "ask" | "auto" | "disabled";
+
 type RecordEntry = {
   id: number;
   date: string;
@@ -400,6 +402,29 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
     if (user && typeof window !== "undefined") {
       try {
         window.localStorage.setItem(`hora-a-hora-rollovers-${user.id}`, JSON.stringify(next));
+      } catch {}
+    }
+  }, [user]);
+
+  const [rolloverMode, setRolloverMode] = useState<RolloverPreference>(() => {
+    if (typeof window === "undefined") return "ask";
+    try {
+      const cached = window.localStorage.getItem(cachedUserKey());
+      if (!cached) return "ask";
+      const parsed = JSON.parse(cached);
+      if (!parsed?.id) return "ask";
+      const saved = window.localStorage.getItem(`hora-a-hora-rollover-mode-${parsed.id}`);
+      return (saved as RolloverPreference) || "ask";
+    } catch {
+      return "ask";
+    }
+  });
+
+  const changeRolloverMode = useCallback((mode: RolloverPreference) => {
+    setRolloverMode(mode);
+    if (user && typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(`hora-a-hora-rollover-mode-${user.id}`, mode);
       } catch {}
     }
   }, [user]);
@@ -799,13 +824,19 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
   const rolloverKey = `${prevYear}-${prevMonth}_to_${currentYear}-${currentMonth}`;
 
   const surplusMinutes = useMemo(() => {
-    if (!user) return 0;
+    if (!user || rolloverMode === "disabled") return 0;
     const goalMinutes = user.goalHours * 60;
     return Math.max(0, previousTotals.minutes - goalMinutes);
-  }, [previousTotals.minutes, user]);
+  }, [previousTotals.minutes, rolloverMode, user]);
 
   const currentRolloverDecision = rollovers[rolloverKey] as MonthRollover | undefined;
-  const activeRolloverMinutes = currentRolloverDecision?.status === "accepted" ? currentRolloverDecision.minutes : 0;
+  const activeRolloverMinutes = useMemo(() => {
+    if (rolloverMode === "disabled") return 0;
+    if (currentRolloverDecision?.status === "accepted") return currentRolloverDecision.minutes;
+    if (currentRolloverDecision?.status === "dismissed") return 0;
+    if (rolloverMode === "auto") return surplusMinutes;
+    return 0;
+  }, [currentRolloverDecision, rolloverMode, surplusMinutes]);
   const totalWithRollover = totals.minutes + activeRolloverMinutes;
 
   const progress = user ? Math.min(100, Math.round((totalWithRollover / (user.goalHours * 60)) * 100)) : 0;
@@ -861,9 +892,16 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
   }
 
   function undoRollover() {
-    const next = { ...rollovers };
-    delete next[rolloverKey];
-    saveRollovers(next);
+    const entry: MonthRollover = {
+      fromYear: prevYear,
+      fromMonth: prevMonth,
+      toYear: currentYear,
+      toMonth: currentMonth,
+      minutes: surplusMinutes,
+      status: "dismissed",
+      decidedAt: new Date().toISOString(),
+    };
+    saveRollovers({ ...rollovers, [rolloverKey]: entry });
     notify("Transferência desfeita com sucesso.", "info");
   }
 
@@ -1626,7 +1664,7 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
           </div>
         </section>
 
-        {surplusMinutes > 0 && !currentRolloverDecision && (
+        {surplusMinutes > 0 && rolloverMode === "ask" && !currentRolloverDecision && (
           <section className="rollover-card panel" aria-label="Banco de horas excedentes">
             <div className="rollover-icon"><Gift size={26} /></div>
             <div className="rollover-copy">
@@ -1900,9 +1938,11 @@ export function HoraApp({ resetToken }: { resetToken?: string }) {
           busy={busy}
           reminders={reminders}
           accessibility={accessibility}
+          rolloverMode={rolloverMode}
           onClose={() => setSettingsOpen(false)}
           onRemindersChange={changeReminders}
           onAccessibilityChange={changeAccessibility}
+          onRolloverModeChange={changeRolloverMode}
           onStartTour={startTour}
           onSave={async (data) => {
             setBusy(true);
@@ -2723,15 +2763,17 @@ function QuickRecordModal({ date, record, availableStudies, busy, onClose, onDet
   );
 }
 
-function SettingsModal({ user, busy, reminders, accessibility, onClose, onSave, onRemindersChange, onAccessibilityChange, onStartTour }: {
+function SettingsModal({ user, busy, reminders, accessibility, rolloverMode, onClose, onSave, onRemindersChange, onAccessibilityChange, onRolloverModeChange, onStartTour }: {
   user: User;
   busy: boolean;
   reminders: ReminderPreferences;
   accessibility: AccessibilityPreferences;
+  rolloverMode: RolloverPreference;
   onClose: () => void;
   onSave: (data: { name: string; goalHours: number; annualGoalHours: number; roundingMode: RoundingMode }) => void;
   onRemindersChange: (preferences: ReminderPreferences) => void;
   onAccessibilityChange: (preferences: AccessibilityPreferences) => void;
+  onRolloverModeChange: (mode: RolloverPreference) => void;
   onStartTour: () => void;
 }) {
   const [name, setName] = useState(user.name);
@@ -2748,6 +2790,50 @@ function SettingsModal({ user, busy, reminders, accessibility, onClose, onSave, 
         <label className="goal-setting"><span className="goal-setting-heading">Meta mensal <strong>{goal} horas</strong></span><span className="goal-number-control"><button type="button" aria-label="Diminuir meta mensal" onClick={() => changeGoal(goal - 1)}><Minus size={16} /></button><input aria-label="Digitar meta mensal em horas" type="number" inputMode="numeric" min="1" max={MAX_MONTHLY_GOAL} step="1" value={goal} onChange={(event) => changeGoal(Number(event.target.value))} /><span>horas</span><button type="button" aria-label="Aumentar meta mensal" onClick={() => changeGoal(goal + 1)}><Plus size={16} /></button></span><input className="range-input" aria-label="Ajustar meta mensal" type="range" min="1" max={MAX_MONTHLY_GOAL} value={goal} onChange={(event) => changeGoal(Number(event.target.value))} /><div className="range-labels"><span>1h</span><span>200h</span></div></label>
         <label className="goal-setting"><span className="goal-setting-heading">Meta anual <strong>{annualGoal} horas</strong></span><span className="goal-number-control"><button type="button" aria-label="Diminuir meta anual" onClick={() => changeAnnualGoal(annualGoal - 1)}><Minus size={16} /></button><input aria-label="Digitar meta anual em horas" type="number" inputMode="numeric" min="1" max={MAX_ANNUAL_GOAL} step="1" value={annualGoal} onChange={(event) => changeAnnualGoal(Number(event.target.value))} /><span>horas</span><button type="button" aria-label="Aumentar meta anual" onClick={() => changeAnnualGoal(annualGoal + 1)}><Plus size={16} /></button></span><input className="range-input" aria-label="Ajustar meta anual" type="range" min="1" max={MAX_ANNUAL_GOAL} step="1" value={annualGoal} onChange={(event) => changeAnnualGoal(Number(event.target.value))} /><div className="range-labels"><span>1h</span><span>2.400h</span></div></label>
         <label>Arredondamento no relatório<select value={roundingMode} onChange={(event) => setRoundingMode(event.target.value as RoundingMode)}><option value="none">Manter horas e minutos exatos</option><option value="nearest">Hora inteira mais próxima</option><option value="up">Sempre para cima</option><option value="down">Sempre para baixo</option></select><small className="field-hint">Os registros originais nunca são alterados; a regra vale somente no total do PDF.</small></label>
+        <section className="preference-section">
+          <div className="preference-title"><Gift size={18} /><div><strong>Transferência de Horas Excedentes</strong><small>Defina como aproveitar horas que passarem da meta mensal.</small></div></div>
+          <div className="rollover-pref-options">
+            <label className={`rollover-radio-option ${rolloverMode === "ask" ? "selected" : ""}`}>
+              <input
+                type="radio"
+                name="rolloverMode"
+                value="ask"
+                checked={rolloverMode === "ask"}
+                onChange={() => onRolloverModeChange("ask")}
+              />
+              <div>
+                <strong>Perguntar todo final de mês se desejo transferir</strong>
+                <small>Padrão recomendado: exibe uma notificação para você decidir.</small>
+              </div>
+            </label>
+            <label className={`rollover-radio-option ${rolloverMode === "auto" ? "selected" : ""}`}>
+              <input
+                type="radio"
+                name="rolloverMode"
+                value="auto"
+                checked={rolloverMode === "auto"}
+                onChange={() => onRolloverModeChange("auto")}
+              />
+              <div>
+                <strong>Transferir automaticamente sempre que passar da meta</strong>
+                <small>Soma o saldo que passou direto como crédito do mês seguinte.</small>
+              </div>
+            </label>
+            <label className={`rollover-radio-option ${rolloverMode === "disabled" ? "selected" : ""}`}>
+              <input
+                type="radio"
+                name="rolloverMode"
+                value="disabled"
+                checked={rolloverMode === "disabled"}
+                onChange={() => onRolloverModeChange("disabled")}
+              />
+              <div>
+                <strong>Nunca transferir (manter cada mês isolado)</strong>
+                <small>Não altera o mês seguinte e mantém os relatórios separados.</small>
+              </div>
+            </label>
+          </div>
+        </section>
         <section className="preference-section">
           <div className="preference-heading"><span><Bell size={18} /></span><div><strong>Lembretes no celular</strong><small>Avise quando você ficar alguns dias sem preencher.</small></div><button type="button" role="switch" aria-checked={reminders.enabled} className={`switch-control ${reminders.enabled ? "active" : ""}`} onClick={() => onRemindersChange({ ...reminders, enabled: !reminders.enabled })}><i /></button></div>
           {reminders.enabled && <div className="preference-options"><small>Lembrar depois de:</small>{([2, 3, 5] as const).map((days) => <button type="button" key={days} className={reminders.days === days ? "selected" : ""} onClick={() => onRemindersChange({ ...reminders, days })}>{days} dias</button>)}</div>}
