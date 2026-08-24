@@ -1,12 +1,12 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle as drizzleNeon, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 import { PGlite } from "@electric-sql/pglite";
-import { drizzle as drizzlePglite, type PgliteDatabase } from "drizzle-orm/pglite";
+import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import * as schema from "./schema";
 
-type AppDatabase = NeonHttpDatabase<typeof schema> | PgliteDatabase<typeof schema>;
+export type AppDatabase = NeonHttpDatabase<typeof schema>;
 
 let database: AppDatabase | null = null;
 
@@ -38,7 +38,7 @@ function initLocalDatabase(): AppDatabase {
     configurable: true,
   });
 
-  return db;
+  return db as unknown as AppDatabase;
 }
 
 export function getDb(): AppDatabase {
